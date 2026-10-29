@@ -211,6 +211,45 @@ describe('built-in presets catalog (data/provider-presets.json)', () => {
     const messages = project('messages', { max_tokens: 4000, reasoning_effort: 'low' });
     expect(messages.thinking).toMatchObject({ type: 'enabled', budget_tokens: 2048 });
   });
+
+  test('runcrate declares inline quirks with chat, messages and responses on /v1', () => {
+    const runcrate = presetOrThrow('runcrate');
+    expect(runcrate.piAiProvider).toBeUndefined();
+    expect(runcrate.autoCompat).toBe(true);
+    expect(Object.keys(runcrate.piAiQuirks ?? {}).sort()).toEqual([
+      'chat',
+      'messages',
+      'responses',
+    ]);
+    // Plexus appends /messages, and Runcrate serves Anthropic messages at /v1/messages.
+    expect(runcrate.apiBaseUrl).toEqual({
+      chat: 'https://api.runcrate.ai/v1',
+      messages: 'https://api.runcrate.ai/v1',
+      responses: 'https://api.runcrate.ai/v1',
+    });
+
+    const project = (targetApiType: string, body: Record<string, unknown>) =>
+      applyRegistryAutoCompat(
+        body,
+        { model: 'alias', messages: [], incomingApiType: targetApiType } as any,
+        {
+          provider: 'runcrate',
+          model: 'deepseek-ai/DeepSeek-V4.1-Flash',
+          config: { auto_compat: true, pi_ai_quirks: runcrate.piAiQuirks } as any,
+        } as any,
+        targetApiType
+      );
+
+    // Runcrate chat reads top-level reasoning_effort with low, medium or high,
+    // so minimal is sent as low.
+    const chat = project('chat', { reasoning: { effort: 'high' } });
+    expect(chat.reasoning).toBeUndefined();
+    expect(chat.reasoning_effort).toBe('high');
+    expect(runcrate.piAiQuirks?.chat?.thinkingLevelMap?.minimal).toBe('low');
+
+    const messages = project('messages', { max_tokens: 4000, reasoning_effort: 'low' });
+    expect(messages.thinking).toMatchObject({ type: 'enabled', budget_tokens: 2048 });
+  });
 });
 
 describe('service tier preset seeds', () => {
