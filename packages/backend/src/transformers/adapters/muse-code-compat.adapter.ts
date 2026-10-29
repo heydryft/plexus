@@ -95,7 +95,7 @@ export function isMuseSubscriptionTarget(route: RouteResult): boolean {
     typeof route.config.api_base_url === 'string'
       ? [route.config.api_base_url]
       : Object.values(route.config.api_base_url ?? {});
-  return urls.some((url) => typeof url === 'string' && url.startsWith('oauth://'));
+  return urls.some((url) => typeof url === 'string' && isOAuthPlaceholderUrl(url));
 }
 
 /**
